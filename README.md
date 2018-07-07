@@ -116,7 +116,7 @@ rules2tbl.pl
 
 # PROGRAM USAGE:                                                        
 
-   rules2tbl.pl                                                          
+     rules2tbl.pl                                                          
                   [-debug <debug number 1-2047>]  (($DEBUG))           
                     1   - Track program's progress.                    
                     2   - Tracing in program.                          
@@ -130,7 +130,7 @@ rules2tbl.pl
                   [-order]                                             
                   [-output none|<fullpath to raw CVS output file>]     
                   [-mvdir <reference directory> <new directory>]       
-     NOTE: Run program at rule root (i.e. \$OMNIHOME\\probes\\linux2x86\\)
+       NOTE: Run program at rule root (i.e. \$OMNIHOME\\probes\\linux2x86\\)
 
 # FEATURES
 
