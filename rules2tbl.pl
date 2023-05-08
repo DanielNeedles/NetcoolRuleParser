@@ -37,7 +37,7 @@
 # 6  - Loop 3: Create SQL, buffer tables in $table                       #
 # 7  - Normalize aggregate file via regular expressions                  #
 # 8  - Create EXCEL workbook template                                    #
-# 9  - Loop 4: Output JAVASCRIPT                                         #
+# 9  - Loop 4: Output JAVASCRIPT -- CURRENTLY NOT IMPLEMENTED            #
 # 10 - Loop 5: Convert SWITCH statements to IF-THEN-ELSE                 #
 # 11 - Loop 6: Build Truth Table                                         #
 # 12 - Output EXCEL Statistics Tab                                       #
@@ -95,6 +95,12 @@
 #                       equation.                                        #
 #        snmptrap.tbl : Holds a tab delimited output of the table.       #
 #        snmptrap.log : The log file used to debug issues.               #
+#        Rules Saved After Each Stage:                                   #
+#           snmptrap.loop1-concat-all-rules                              #
+#           snmptrap.loop2-tokenize-remove-comments                      #
+#           snmptrap.loop3-buffer-tables                                 #
+#           snmptrap.loop4-convert-to-javascript                         #
+#           snmptrap.loop5-convert-switchstmts-to-if-then-else           #
 # Install OpenOffice -                                                   #
 #       See http://www.if-not-true-then-false.com/                       #
 #             2010/install-openoffice-org-on-fedora-centos-red-hat-rhel/ #
@@ -102,10 +108,11 @@
 # rules2tbl.pl                                                           #
 #                  [-debug <debug number 1-2047>]  (($DEBUG))            #
 #                    1   - Track program's progress.                     #
-#                    2   - Tracing in program.                           #
-#                    4   - Print out the interum rules before and after  #
-#	                   switch stmts are converted to if-then-else.   #
-#                          Also dump all tokens.                         #
+#                    2   - Detailed logging of loop 1                    #
+#                    4   - Detailed logging of loop 2                    #
+#                    8   - Detailed logging of loop 3                    #
+#                    16  - Detailed logging of loop 4                    #
+#                    32  - Detailed logging of loop 5                    #
 #                  [-excel <fullpath to Excel output file>]              #
 #                  [-help]                                               #
 #                  [-input <rulesfile>]                                  #
@@ -141,6 +148,11 @@ my $AFD='snmptrap.tbl';     ## ONE FILE TO HOLD THEM ALL
 my $EQN='snmptrap.eqn';     ## EQUATION OUTPUT FILE
 my $SQL='snmptrap.sql';     ## SQL FILE
 my $JS='snmptrap.js';       ## JAVASCRIPT FILE
+my $LOOP1='snmptrap.loop1-concat-all-rules'; ## RULES AFTER LOOP1
+my $LOOP2='snmptrap.loop2-tokenize-remove-comments'; ## RULES AFTER LOOP2
+my $LOOP3='snmptrap.loop3-buffer-tables'; ## RULES AFTER LOOP3
+my $LOOP4='snmptrap.loop4-convert-to-javascript'; ## RULES AFTER LOOP4
+my $LOOP5='snmptrap.loop5-convert-switchstmts-to-if-then-else'; ## RULES AFTER LOOP4
 my $MVDIR=':';              ## REPLACE DIRECTORY REFERENCE
 my $SRCDIR='';              ## DERIVED FROM MVDIR -- SRC DIR TO REPLACE
 my $DSTDIR='';              ## DERIVED FROM MVDIR -- DST DIR TO REPLACE WITH
@@ -204,6 +216,31 @@ if ( lc($EQN) ne 'none' ) {
     print "E: Failed to open EQUATION output file: $EQN\n";
   }
 }
+if ( lc($LOOP1) ne 'none' ) { 
+  if (!(open(LOOP1, "> $LOOP1"))) {
+    print "E: Failed to open LOOP1 Script output file: $LOOP1\n";
+  }
+}
+if ( lc($LOOP2) ne 'none' ) { 
+  if (!(open(LOOP2, "> $LOOP2"))) {
+    print "E: Failed to open LOOP2 Script output file: $LOOP2\n";
+  }
+}
+if ( lc($LOOP3) ne 'none' ) { 
+  if (!(open(LOOP3, "> $LOOP3"))) {
+    print "E: Failed to open LOOP3 Script output file: $LOOP3\n";
+  }
+}
+if ( lc($LOOP4) ne 'none' ) { 
+  if (!(open(LOOP4, "> $LOOP4"))) {
+    print "E: Failed to open LOOP4 Script output file: $LOOP4\n";
+  }
+}
+if ( lc($LOOP5) ne 'none' ) { 
+  if (!(open(LOOP5, "> $LOOP5"))) {
+    print "E: Failed to open LOOP5 Script output file: $LOOP5\n";
+  }
+}
 my $statworkbook = Spreadsheet::WriteExcel->new($SFD); ## CMDLINE SETS $SFD
 my $wsstats = $statworkbook->add_worksheet('Statistics');
 my $format = $statworkbook->add_format();
@@ -253,15 +290,21 @@ $lines=~s/^(.*?)\s+$/\1/gm; ## RM TRAILING SPACES
 $lines=~s:^TABLE:table:gmi;      ## LOWER CASE TABLES
 #$lines=~s:^INCLUDE:include:gmi;  ## LOWER CASE INCLUDES 
 $lines=~s:^DEFAULT:default:gmi;  ## LOWER CASE DEFAULT (CASE STMT & TABLE)
+$lines=~s:^CASE:case:gmi;  ## LOWER CASE DEFAULT (CASE STMT & TABLE)
+$lines=~s:^case\":case ":gmi;  ## LOWER CASE DEFAULT (CASE STMT & TABLE)
 $lines=~s/^(table\s+[\w\-_]+)\s*=\s*\".*?\"/\1 =/mg;  ## REMOVE EMBEDDED TABLE FILE REFERENCE AS WELL AS COMMENTS
 $lines=~s/^(table\s+[\w\-_]+\s*=\s*\{)$/(my $subscope=$1)=~s:\n: :g; $subscope;/smge; ## CONCAT SPLIT 'table . = {'
 my $includenum=$lines=~s/^include .*$//igm; ## CNT INCLUDES
 my $arraynum=$lines=~s/^array\s+.*?;\n//igms; ## CNT AND REMOVE ARRAY DCLS
 
+## SAVE CODE
+print LOOP1 $lines;
+close(LOOP1);
+
 ##########################################################################
 ## 5 - LOOP 2: TOKENIZE, REMOVE COMMENTS, MEMORIZE TABLES
 ##########################################################################
-($DEBUG & 2) && print "//3: Loop 2: Tokenize strings, comments. Drop comments and memorize tables.",&runtimer,"\n";
+($DEBUG & 1) && print "//3: Loop 2: Tokenize strings, comments. Drop comments and memorize tables.",&runtimer,"\n";
 my @lines = split /\n/,$lines;   ## CONVERT TO ARRAY FOR LINE CENTRIC PROCESSING
 my @strings;                     ## TOKENIZE STRINGS
 my $stringidx=0;                 ## TOP OF STRINGS STACK
@@ -289,8 +332,19 @@ my $lookupkeyidx=0;      # Key; x=lookup(^key,tbl);
 my $lookupcomma=0;    # Tbl; x=lookup(key,^tbl);
 
 for (my $i=0; $i<=$#lines; $i++) {
-#print "LOOP 2: $i: $lines[$i]\n";
-  ($DEBUG & 2) && print "LOOP 2: $i: $lines[$i]\n";
+  ## WHERE ARE WE AT?
+  if ($DEBUG & 2) {
+    print "LOOP 2: $i: $lines[$i]\n";
+  } elsif ($DEBUG & 1) {
+    if ($i % 50000 == 0) {
+      print "LOOP 2: $i of $#lines\n";
+    }
+  }
+
+  ## BUG FIX. BRACKET WITH COMMENT SOMEHOW SLIPPED THROUGH
+  if ($lines[$i] =~ /^}\s+#/) {
+    $lines[$i] = '}';
+  }
 
   ## PRE-PROCESS TABLE BY LINE.  
   ## 1. TOGGLE IN AND OUT OF TABLE TO TURN OFF AND ON '\' ESCAPING
@@ -397,13 +451,12 @@ for (my $i=0; $i<=$#lines; $i++) {
   ##   STRINGS,VARS,FIELDS,PROPS,FUNCTIONS, AND DISCARD COMMENTS
   for (my $j=0; $j<=length($lines[$i]); $j++) {
     my $a=substr($lines[$i],$j,1);
-#print "  $lines[$i]\n";
-#print "  $j '$a'\n";
-    ($DEBUG & 2) && print "  $j '$a'\n";
+    ($DEBUG & 2) && print "  $lines[$i]\n";
+    ($DEBUG & 2) && print "  At char $j '$a'\n";
 
     ## PROCESS STRING
     if (($a eq '"') || ($a eq "'")) {
-      ($DEBUG & 2) && print "  STRING\n";
+      ($DEBUG & 2) && print "    STRING\n";
       my $k=$j+1;
       while (!(substr($lines[$i],$k,1) eq "$a") && $k<=length($lines[$i])) {
         ## IN STRING AND NOT TABLE NEXT CHARACTER NOT PROCESSED
@@ -415,7 +468,7 @@ for (my $i=0; $i<=$#lines; $i++) {
       }
       if (substr($lines[$i],$k,1) ne "$a") {
         print "E: String failed to terminate. At $k found '" . substr($lines[$i],$k,1) . "' not $a\n"; 
-	print "   On LINE: $lines[$i].\n";
+	print "    On LINE: $lines[$i].\n";
       }
       $strings[$stringidx]=substr($lines[$i],$j,$k-$j+1);
       my $tmp=$a. $stringidx . $a;        ## REPLACE WITH INDEX & DELIMITERS
@@ -427,7 +480,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     ## PROCESS FIELD
     } elsif ($a eq '@') {
-      ($DEBUG & 2) && print "FIELD\n";
+      ($DEBUG & 2) && print "    FIELD\n";
       my $k=$j+1;
       while (substr($lines[$i],$k,1)=~/[A-Za-z0-9\_\-]/) {
         $k++;
@@ -444,7 +497,7 @@ for (my $i=0; $i<=$#lines; $i++) {
         
     ## PROCESS VARIABLE?  (special case $*)
     } elsif ($a eq '$') {
-      ($DEBUG & 2) && print "VARIABLE\n";
+      ($DEBUG & 2) && print "    VARIABLE\n";
       my $k=$j+1;
       my $tmp;
       if(substr($lines[$i],$k,1) eq '*'){
@@ -468,7 +521,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     ## PROCESS PROPERTY?
     } elsif ($a eq '%') {
-      ($DEBUG & 2) && print "PROPERTY\n";
+      ($DEBUG & 2) && print "    PROPERTY\n";
       my $k=$j+1;
       while (substr($lines[$i],$k,1)=~/[A-Za-z0-9\_\-]/) {
         $k++;
@@ -485,7 +538,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     ## PROCESS END OF FUNCTION AND CHECK IF END OF LOOKUP
     } elsif ($a eq ')') {
-      ($DEBUG & 2) && print "END OF FUNCTION\n";
+      ($DEBUG & 2) && print "    END OF FUNCTION (NEST LEVEL OF $fxnest; LOOKUPNEST $lookupnest; LOOKUPCOMMA $lookupcomma)\n";
 #print "  CLOSED BRACKET BEFORE  $fxnest\n"; 
       ## PROCESS LOOKUP
       if ($lookupnest == $fxnest && $lookupnest>0) {
@@ -519,6 +572,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 	  $tmptbl='~' . $tmptbl . '~';
 #print "  LOOKUPTBL: $lookuptbl $tmptbl\n";
           if ($lookupfields eq "EMBEDDED" ) {
+            ($DEBUG & 2) && print "    EMBEDDED LOOKUP\n";
             $newline= "(" . $tmptbl . "\[$lookupkey\])?(" . $tmptbl . "\[$lookupkey\]\[$j\]?" . $tmptbl . "\[$lookupkey\]\[0\]:$tmpdef[0]):$tmpdef[0]";
 	    substr($lines[$i],$lookupkeyidx-6,$j-$lookupkeyidx+6,$newline);
 	    $j=$lookupkeyidx-6+length($newline);
@@ -528,31 +582,35 @@ for (my $i=0; $i<=$#lines; $i++) {
 #print "  REST         :" . substr($lines[$i],$j,length($lines[$i])-$j+1) . "\n";
 	  ## ELSE REPLACE ENTIRE ASSIGNMENT EXPRESSION
           } else {
-#print "  PRELINE2:       $lines[$i]\n";
+            ($DEBUG & 2) && print "    PRELINE:       $lines[$i] at $j '$a'\n";
 	    $newline='';
             for (my $k=0; $k<=$#tmpvar; $k++) {
               #var test=(table['xxx'] )?(table['xxx'][0]?'Success':'default2'):'default1';
 	      my $tmptbl= $taxonomy{"~$lookuptbl"};
 	      $tmptbl='~' . $tmptbl . '~';
-#print "  LOOKUPTBL2: $lookuptbl $tmptbl\n";
+              ($DEBUG & 2) && print "    LOOKUPTBL2: $lookuptbl $tmptbl\n";
 	      if ($k>0) {
                 $newline.="\n";
 	      }
               $newline.= "$tmpvar[$k] = (" . $tmptbl . "\[$lookupkey\])?(" . $tmptbl . "\[$lookupkey\]\[$k\]?" . $tmptbl . "\[$lookupkey\]\[$k\]:$tmpdef[$k]):$tmpdef[$k]";
             }
-	    $lines[$i]=$newline;
-#print "  NEWLINE2 AT $j: $newline\n";
-#print "  NOWLINE2:       $lines[$i]\n";
-#print "  NEWLINE: $newline\n";
-            $lookupnest=0;  ## OUTSIDE LOOKUP
-            $fxnest--;
+	    #$lines[$i]=$newline;
+	    my $rest_line=substr($lines[$i],$j,length($lines[$i])-$j+1);
+            ($DEBUG & 2) && print "    WAS AT $j '$a': $lines[$i] REMAINDER: $rest_line\n";
+	    $lines[$i]=$newline . $rest_line;
+	    $j=length($newline);
+	    my $t=substr($lines[$i],$j,1); 
+            ($DEBUG & 2) && print "    NOW AT $j '$t' : $lines[$i]\n";
+	    #$lookupnest=0;  ## OUTSIDE LOOKUP
+	    #$fxnest--;
 #print "  CLOSED BRACKET  $fxnest\n"; 
-            if ($fxnest<0) {
-              print "E: Too many ) found on $lines[$i]\n";
-            }
-	    last;  ## ABORT ANY MORE PROCESSING
+	    #if ($fxnest<0) {
+	    #  print "E: Too many ) found on $lines[$i]\n";
+	    #}
+	    #last;  ## ABORT ANY MORE PROCESSING
           }
 	}
+        ($DEBUG & 2) && print "    FUNCTION NEST LEVEL $fxnest\n";
         $lookupnest=0;  ## OUTSIDE LOOKUP
       }
       $fxnest--;
@@ -563,18 +621,18 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     ## PROCESS MIDDLE OF LOOKUP
     } elsif (($lookupnest) && ($fxnest == $lookupnest) && ($a eq ',')) {
-      ($DEBUG & 2) && print "MIDDLE OF LOOKUP\n";
+      ($DEBUG & 2) && print "    MIDDLE OF LOOKUP (NEST LEVEL $fxnest)\n";
       $lookupcomma=$j; 
 
     ## BRACKET
     } elsif ($a eq '(' ) {
-      ($DEBUG & 2) && print "START OF CLAUSE\n";
       $fxnest++;
+      ($DEBUG & 2) && print "    START OF CLAUSE. (NEST LEVEL $fxnest)\n";
 
     ## FUNCTION
     } elsif ($a =~ /[A-Za-z]/ ) {
 #print "  OLDLINE:  NEST $fxnest $lines[$i]\n";
-      ($DEBUG & 2) && print "START OF FUNCTION\n";
+      ($DEBUG & 2) && print "    START OF FUNCTION (NEST LEVEL $fxnest)\n";
 #print " OPEN BRACKET BEFORE  $fxnest\n"; 
       my $k=$j+1;
       while (substr($lines[$i],$k,1)=~/[A-Za-z0-9_\-]/) {
@@ -586,6 +644,7 @@ for (my $i=0; $i<=$#lines; $i++) {
       my $b=substr($lines[$i],$k,1);
       if ($b eq '(') {
         $fxnest++;
+        ($DEBUG & 2) && print "    START OF CLAUSE OF A FUNCTION. (NEST LEVEL $fxnest)\n";
         while (substr($lines[$i],$k,1) eq ' ') {
           $k++;
         }
@@ -616,7 +675,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     ## DISCARD COMMENT
     } elsif ($a eq '#') {
-      ($DEBUG & 2) && print "COMMENT\n";
+      ($DEBUG & 2) && print "    COMMENT\n";
       $commentnum++;
       $lines[$i]=substr($lines[$i],0,$j);  ## NOTE -1 means whole string.
 #print "COMMENT: $i:$j $lines[$i]\n";
@@ -624,7 +683,7 @@ for (my $i=0; $i<=$#lines; $i++) {
 
     # INSIDE A STRING OR LOOKUP OR OTHER ... JUST KEEP TRUCKING.
     } else {
-      ($DEBUG & 2) && print "DEFAULT ACTION ON $a\n";
+      ($DEBUG & 2) && print "    DEFAULT ACTION ON $a\n";
       ## DO NOT ADD IF INSIDE A STRING (WE NEVER ARE INSIDE A COMMENT)
 #     if ($lookupnest>=1) {
 #       print "    LOOKUP $lookupnest: '$a'\n";
@@ -634,18 +693,37 @@ for (my $i=0; $i<=$#lines; $i++) {
     ## CONCAT LINES WHERE PHRASES AND FUNCTIONS ARE SPLIT
     if ($j == length($lines[$i])) {
       if ($fxnest>0) {
-        ($DEBUG & 2) && print "W: JOINING nested level $fxnest:\n  $lines[$i]\n  $lines[$i+1]\n";
-        ($DEBUG & 2) && print "   $j:",substr($lines[$i],$j,1),"\n";
-	$j--;
-        $lines[$i].=' ' . $lines[$i+1];
-	splice(@lines,$i+1,1);
-#print "NOW: '$lines[$i]'\n";
+	if ($i < $#lines) {   ## NEED AT LEAST ONE NEW LINE AHEAD TO CONCAT
+	  if ($lines[$i+1] =~ /^if\(|^case |^default:|^switch|^log\(|^\\\\rules/) {
+	    print "E: We hit a regular command while inside a function (i.e. '()') Stopping at line $i of $#lines.";
+	    print "   Will not concatinate the second line to the first, because second looks like regular code.";
+            print "   Check LOOP2 file. Nested function level $fxnest:\n  $lines[$i]\n  $lines[$i+1]\n";
+            $lines=join("\n",@lines);
+            print LOOP2 $lines;
+            close(LOOP2);
+	    exit;
+	  }
+          ($DEBUG & 2) && print "W: JOINING nested level $fxnest:\n  $lines[$i]\n  $lines[$i+1]\n";
+          ($DEBUG & 2) && print "   $j:",substr($lines[$i],$j,1),"\n";
+	  $j--;
+          $lines[$i].=' ' . $lines[$i+1];
+	  splice(@lines,$i+1,1);
+          ($DEBUG & 2) && print "NOW: at line $i of $#lines at '$lines[$i]'\n";
+        } else {
+	  ($DEBUG & 2) && print "W: CANNOT JOIN nested level $fxnest as it is EOF:\n  $lines[$i]\n";
+        }
       }
     }
   }
+  if ($DEBUG & 2) {
+    print "NOW: $i: $lines[$i]\n";
+  }
+}
+if ($DEBUG & 1) {
+  print "LOOP 2 COMPLETE\n";
 }
 
-if ($DEBUG & 4) {
+if ($DEBUG & 128) {
   print "Loop 2 (POST): STRING ARRAY DUMP:\n";
   for (my $i=0; $i<=$#strings; $i++) {
     print "$i: $strings[$i]\n";
@@ -685,8 +763,10 @@ my $commentlinenum=$lines=~s/^\s*\n//sgm; ## RM EMPTY LINES LEFT BY COMMENT LINE
 my $tablenum=()=$lines=~/^table/gm;
 $lines=~s/^table\s+~\d+~\s+=\s+\{.*?\n^\}\n(^default\s*=.*?\n)?//gms; ## CNT AND RM IMBEDDED TBLS AS THEY WILL BE REBUILT VIA %table
 $lines=~ s:(//rulesfile\:.*?\n)(?=//rulesfile\:.*?\n)::g; ## REMEMBER LAST RULEFILE CASE 
-#print $lines;
-#exit;
+
+## SAVE CODE
+print LOOP2 $lines;
+close(LOOP2);
 
 ##########################################################################
 ## 6 - Loop 3: CREATE SQL, BUFFER TABLES IN $TABLE
@@ -740,8 +820,8 @@ foreach my $item (sort keys %table) {
       } else {
         #print "W: Could not strip outside {} for row $i.\n";
       }
-      $data[$i]=~s:^\"::g;
-      $data[$i]=~s:\"$::g;
+      $data[$i]=~s:^\"::g; #"
+      $data[$i]=~s:\"$::g; #"
       my @datem=split /\"\s*,\s*\"/,$data[$i];
       my $vals;
       if ($i>1) {
@@ -897,7 +977,7 @@ foreach my $item (sort {$taxonomy{$b} <=> $taxonomy{$a}} keys(%taxonomy)) {
     $colsrt[4][$colcnt[4]]=$item;
     $colcnt[4]++;
   }
-  ($DEBUG & 2) && print "//  a. Add to PreExcel Tbl: $item\n";
+  ($DEBUG & 4) && print "//  a. Add to PreExcel Tbl: $item\n";
 }
 #for (my $i=0; $i<$colcnt[3]; $i++) {
 #   print "$i: $colsrt[3][$i]\n";
@@ -936,18 +1016,16 @@ for (my $i=0; $i <= $#lines; $i++ ) {
   $reallyprettylines.="$line\n";
 }
 
-## PRINT OUT INITIAL RULES
-if ($DEBUG & 4) {
-  print "//****************** PRE-CASE CONVERSION RULES FILE ********************\n";
-  print $reallyprettylines;
-  print "//****************** PRE-CASE CONVERSION RULES FILE ********************\n";
-}
-#print $reallyprettylines;
+## PRINT PRE-CASE LOOP 3: 
+print LOOP3 "//****************** PRE-CASE CONVERSION RULES FILE ********************\n";
+print LOOP3 $reallyprettylines;
+close(LOOP3);
 #exit;
 
 ##########################################################################
-## 9 - LOOP 4: OUTPUT JAVASCRIPT
+## 9 - LOOP 4: OUTPUT JAVASCRIPT (SKIP - NEEDS WORK.)
 ##########################################################################
+if (1==2) {
 ($DEBUG & 1) && print "//6: BUILD JAVASCRIPT.",&runtimer,"\n";
 ## REDO TO GET RID OF SPACES
 my $javascriptlines=$lines;
@@ -992,7 +1070,7 @@ untokenize(\$javascriptlines,'Var_','Fld_','Prop_','Table_');
 
 ($DEBUG & 1) && print "//  g. Create Variable Declaration.",&runtimer,"\n";
 foreach my $item (sort { length $b <=> length $a } keys(%taxonomy)) {
-  ($DEBUG & 2) && print "//  Process $1 (count $taxonomy{$item}): $item\n";
+  ($DEBUG & 8) && print "//  Process $1 (count $taxonomy{$item}): $item\n";
   $i++;
   if ($item =~ /^\@/ ) { # FIELDS 1st
     my $newitem= 'Fld_' . substr($item,1);
@@ -1218,6 +1296,7 @@ foreach my $item (sort keys %table) {
 }
 print JS "//MAIN CODE\n$javascriptlines";
 #exit;
+}
 
 ##########################################################################
 ## 10 - LOOP 5: CONVERT SWITCH STMTS TO IF-THEN-ELSE
@@ -1234,15 +1313,20 @@ for (my $i=0; $i<=$#lines; $i++) {
 
   if ($DEBUG & 1) {
     if (0==($i % $ttmp)) {
-      print "//   Processed $i lines",&runtimer,"\n";
+      print "//   Processed $i lines of $#lines",&runtimer,"\n";
     }
   }
-## CONVERT SWITCH AND FIRST CASE TO IF STMTSTMTS TO IF STMTS
+  ($DEBUG & 16) && print "LOOP 5: $i: $line\n";
+
+  ## CONVERT SWITCH AND FIRST CASE TO IF STMTSTMTS TO IF STMTS
   if ( $line =~ /^switch\s*\(\s*(.*)\s*\)/ ) {
     push(@switch,$1);
     splice(@lines,$i,1);
     $level++; $colcnt[0]=($level>$colcnt[0])?$level:$colcnt[0];
     my $caseid='';
+
+    ($DEBUG & 16) && print "I: Level $level, Switch on $1 ColCnt $colcnt[0]";
+
     ## ADDED JUST IN CASE REGEX GOT CONFUSED
     if ($lines[$i]=~ /^case\s+(.*)\s*:$/) {
       $caseid=$1;
@@ -1273,11 +1357,28 @@ for (my $i=0; $i<=$#lines; $i++) {
       } else {
         print "E: NO MATCH FOR CASE: $lines[$i]:\n";
 	$caseid='ERROR';
+
+        # UG. FAIURE. PRINT OUT WHAT WE HAVE SO FAR 
+        ($DEBUG & 16) && print "       FAILURE TO CREATE A CASEID FOR switch at line $i: $line\n";
+	if ($DEBUG & 16) {
+	  print LOOP5 "************** EXPANDED AND NORMALIZED RULES FILE ****************\n";
+	  for (my $j=0; $j <= $#lines; $j++ ) {
+	    my $line=$lines[$i];
+	 
+	    $space-=( $line =~ /^}/ )?1:0;
+	    for ( my $k=0; $k<$space; $k++) {
+	      print LOOP5 '  ';
+	    }
+	    $space+=( $line =~ /\{$/ )?1:0;
+	    print LOOP5 "$line\n";
+	  }
+	}
+	close(LOOP5);
         exit;
       }
     }
     $line="if($switch[$#switch] = $caseid){";
-    ($DEBUG & 2) && print "       switch: $line\n";
+    ($DEBUG 16& 4) && print "       CREATE FOR $caseid => switch: $line\n";
 
 # CONVERT OTHER CASES to ELSE IF.
   } elsif ( $line=~ /^case\s+(.*)\s*:\s*(.*)$/) {
@@ -1285,23 +1386,30 @@ for (my $i=0; $i<=$#lines; $i++) {
     my $caseid=$1;
     print "W: IGNORING TAILING CASE INFO: '$2'\n" if ($2);
     $line= "} else if($switch[$#switch] = $caseid){";
-    ($DEBUG & 2) && print "       case: $caseid => $line\n";
+    ($DEBUG & 16) && print "       LEVEL $level THIS IS case: $caseid => $line\n";
 
 ## CONVERT DEFAULT
   } elsif ( $line=~ /^default:/) {
     $line='} else {';
     pop(@switch);
-    ($DEBUG & 2) && print "       default\n";
+    ($DEBUG & 16) && print "       default: ADD ELSE STMT\n";
   } elsif ($line =~ /^}$/) {
     $level--;
+    ($DEBUG & 16) && print "       CLOSE BRACKET: Take it down a level to $level\n";
   } elsif ($line =~ /^if\(.*\){/) {
     $level++; $colcnt[0]=($level>$colcnt[0])?$level:$colcnt[0];
-  }
+    ($DEBUG & 16) && print "       IF: Take it up a level to $level\n";
+  } elsif ($line =~ /^table .*{/) {
+    $level++; $colcnt[0]=($level>$colcnt[0])?$level:$colcnt[0];
+    ($DEBUG & 16) && print "       TABLE: Take it up a level to $level\n";
+  } else {
+    ($DEBUG & 16) && print "       Not SWITCH, CASE, IF, ELSE, DEFAULT, or TABLE STATEMENT CHECK.\n";
+  }  
+    
 
 # SAVE SWITCH CONVERTED TO IF STMTS LINE
   $lines[$i]=$line;
-  ($DEBUG & 2) && print "LINE1: $i: $line\n";
-
+  ($DEBUG & 16) && print "NOW: $i: $line\n";
 }
 
 $lines=join("\n",@lines); ## REBUILD CONCATENTATED RULES FILES
@@ -1310,27 +1418,25 @@ my $emptyelse = $lines =~ s/} else {\n*}/}/gms; # RM EMPTY ELSE GLOBALLY
 untokenize(\$lines,'$','@','%','');  ## UNTOKENIZE
 my @lines = split /\n/,$lines; ## SPLIT RULES BACK OUT
 
-($DEBUG & 2) && print "******************  CONVERT SWITCH STMTS ********************\n";
+($DEBUG & 16) && print "******************  CONVERT SWITCH STMTS ********************\n";
 ## INCASE VARS AT START OR END BEFORE CASES, WRAP ENTIRE RULES IN 
 ## TRUE CONDITION TO FORCE PROCESSING OF THE ENTIRE THING
 splice(@lines,0,0,'if(NOP){');
 $lines[$#lines+1]='}';
 
 # PRINT OUT UPDATED RULES 
-if ($DEBUG & 4) {
-  print "************** EXPANDED AND NORMALIZED RULES FILE ****************\n";
-  for (my $i=0; $i <= $#lines; $i++ ) {
-    my $line=$lines[$i];
- 
-    $space-=( $line =~ /^}/ )?1:0;
-    for ( my $j=0; $j<$space; $j++) {
-      print '  ';
-    }
-    $space+=( $line =~ /\{$/ )?1:0;
-    print "$line\n";
+print LOOP5 "************** EXPANDED AND NORMALIZED RULES FILE ****************\n";
+for (my $i=0; $i <= $#lines; $i++ ) {
+  my $line=$lines[$i];
+
+  $space-=( $line =~ /^}/ )?1:0;
+  for ( my $j=0; $j<$space; $j++) {
+    print LOOP5 '  ';
   }
-  print "************** EXPANDED AND NORMALIZED RULES FILE ****************\n";
+  $space+=( $line =~ /\{$/ )?1:0;
+  print LOOP5 "$line\n";
 }
+close(LOOP5);
 #exit;
 
 # PRINT OUT TRUTH TABLE STATISTICS
@@ -1408,7 +1514,7 @@ $ttmp=($ttmp<1)?1:$ttmp;
 
 for (my $i=0; $i<=$#lines; $i++) {
 #print "\nLINE3 BEFORE: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE3:'$lines[$i]'\n";
-  ($DEBUG & 2) && print "\nLINE3 BEFORE: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE3:'$lines[$i]'\n";
+  ($DEBUG & 32) && print "\nLINE3 BEFORE: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE3:'$lines[$i]'\n";
   if ($DEBUG & 1) {
     if (0==($i % $ttmp)) {
       print "//  Processed $i lines",&runtimer,"\n";
@@ -1439,7 +1545,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     $conds[$endconds]=$tmpcond;
     $empelsecond[$endconds]=0;  ## NO ELSE DETECTED YET
     $lb+=2;
-    ($DEBUG & 2) && print "EQN: $i: +2 $lb: ((: $lines[$i]\n";
+    ($DEBUG & 32) && print "EQN: $i: +2 $lb: ((: $lines[$i]\n";
 
   # IF ELSE (or NON FIRST CASE in SWITCH)
   } elsif ( $lines[$i]=~ /^}\s*else if\s*\((.*)\)\{/ ) {
@@ -1456,7 +1562,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     $varidx=0;
     ## REMOVE BRACES AROUND VARIABLES
     $equation.=")+(";
-    ($DEBUG & 2) && print "EQN: $i: $lb: )+(: $lines[$i]\n";
+    ($DEBUG & 32) && print "EQN: $i: $lb: )+(: $lines[$i]\n";
     $was='op';
     $state='ELSE IF';
     $endvars=0;
@@ -1470,7 +1576,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     $varidx=0;
     ## REMOVE BRACES AROUND VARIABLES
     $equation.=")+(";
-    ($DEBUG & 2) && print "EQN: $i: $lb: )+(: $lines[$i]\n";
+    ($DEBUG & 32) && print "EQN: $i: $lb: )+(: $lines[$i]\n";
     $was='op';
     $state='ELSE';
     $endvars=0;
@@ -1493,7 +1599,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     }
     $empelsecond[$endconds]='';
     $lb-=2;
-    ($DEBUG & 2) && print "EQN: $i: -2 $lb: )): $lines[$i]\n";
+    ($DEBUG & 32) && print "EQN: $i: -2 $lb: )): $lines[$i]\n";
     $was='opend';
     $state='ENDIF';
     $conds[$endconds]='';
@@ -1508,10 +1614,10 @@ for (my $i=0; $i<=$#lines; $i++) {
     $state='MULTI VAR ASSIGN ';
     if ($was eq 'opend') { 
       $equation.="x$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
     } elsif ($was eq 'op') { 
       $equation.="$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
     } elsif ($was ne 'var') { 
       print "W: $state: ($was) $lines[$i]\n"; 
     }
@@ -1528,7 +1634,7 @@ for (my $i=0; $i<=$#lines; $i++) {
       }
       $state.="$variable=$value;";
     }
-    if ($DEBUG & 2) {
+    if ($DEBUG & 32) {
       print "****  VARIABLE STACK ($endvars)  ****\n";
       for (my $i=0; $i<=$endvars; $i++) {
         print "  $i: $vars[$i]\n";
@@ -1544,10 +1650,10 @@ for (my $i=0; $i<=$#lines; $i++) {
     $state="SINGLE VAR ASSIGN $variable=$value";
     if ($was eq 'opend') { 
       $equation.="x$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
     } elsif ($was eq 'op') { 
       $equation.="$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
     } elsif ($was ne 'var') { 
       print "W: $state: ($was) $lines[$i]\n"; 
     }
@@ -1560,7 +1666,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     } else {
       $vars[$endvars]="$variable~~$value";
     }
-    if ($DEBUG & 2) {
+    if ($DEBUG & 32) {
       print "****  VARIABLE STACK ($endvars)  ****\n";
       for (my $i=0; $i<=$endvars; $i++) {
         print "  $i: $vars[$i]\n";
@@ -1580,10 +1686,10 @@ for (my $i=0; $i<=$#lines; $i++) {
     $state="SPECIAL VAR ASSIGN $value";
     if ($was eq 'opend') { 
       $equation.="x$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: x$endequation: $lines[$i]\n";
     } elsif ($was eq 'op') { 
       $equation.="$endequation"; 
-      ($DEBUG & 2) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
+      ($DEBUG & 32) && print "EQN: $i: $lb: $endequation: $lines[$i]\n";
     } elsif ($was ne 'var') { 
       print "W: $state: ($was) $lines[$i]\n"; 
     }
@@ -1596,7 +1702,7 @@ for (my $i=0; $i<=$#lines; $i++) {
     } else {
       $vars[$endvars]="$variable~~$value";
     }
-    if ($DEBUG & 2) {
+    if ($DEBUG & 32) {
       print "****  VARIABLE STACK ($endvars)  ****\n";
       for (my $i=0; $i<=$endvars; $i++) {
         print "  $i: $vars[$i]\n";
@@ -1636,13 +1742,14 @@ for (my $i=0; $i<=$#lines; $i++) {
       $state.="E: " . $i+1 . ":           : $lines[$i+1]\n";
       print "$state\n";
     }
-    ($DEBUG & 2) && print "EQN: $i: $lb: ?: $lines[$i]\n";
+    ($DEBUG & 32) && print "EQN: $i: $lb: ?: $lines[$i]\n";
   }
-  ($DEBUG & 2) && print "EQUATION: $equation\n";
+  ($DEBUG & 32) && print "EQUATION: $equation\n";
 
-  ($DEBUG & 2) && print "\nLINE3 AFTER: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE:'$lines[$i]'\n";
+  ($DEBUG & 32) && print "\nLINE3 AFTER: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE:'$lines[$i]'\n";
 #print "\nLINE3 AFTER: $i: $state\n  COND $endconds $conds[$endconds]\n  VARS $endvars $vars[$endvars]\n  LINE:'$lines[$i]'\n";
 }
+($DEBUG & 1) && print "//  Processing Complete of $#lines lines",&runtimer,"\n";
 
 ##########################################################################
 ## 12 - OUTPUT EXCEL STATISTICS TAB
@@ -1732,7 +1839,7 @@ for (my $i=1; $i<=$#prefix; $i++) {
   my $prev=($prefix[$i-1]=~/\d+/)?'d':$prefix[$i-1];
   my $curr=($prefix[$i]=~/\d+/)?'d':$prefix[$i];
   
-  if ($DEBUG & 2) {
+  if ($DEBUG & 64) {
     my $a=($i>=7)?$i-7:0;
     my $b=($i<=$#prefix-8)?$i+8:$#prefix;
     my $tmp; for (my $j=$a; $j<=$b; $j++) { $tmp.=$prefix[$j]; }
@@ -1751,7 +1858,7 @@ for (my $i=1; $i<=$#prefix; $i++) {
   } elsif ($action == 4 ) {
     print "E: Invalid $prefix[$i-1] $prefix[$i]\n";
   }
-  if (($DEBUG & 2) && ($action > 0)) {
+  if (($DEBUG & 64) && ($action > 0)) {
       my $tmp; for (my $j=$a; $j<=$b; $j++) { $tmp.=$prefix[$j]; }
       print "    $action: $a-$b:$tmp\n";
   }
@@ -1773,7 +1880,7 @@ W: Bracket mismatch left: $leftcnt while right: $rightcnt
    EQUATION: $equation
 EOF
 }
-($DEBUG & 2) && print "TRIMMED EQUATION: $equation\n";
+($DEBUG & 64) && print "TRIMMED EQUATION: $equation\n";
 
 ## DETECT AND REPORT WHERE EQUATON HAS TOO MANY OPERATORS/OPERANS
 ## Position hash with anony array
@@ -1891,7 +1998,7 @@ for (my $i=0; $i<=$#postfix; $i++) {
 if ($stack[0]=~ /^\((.*)\)$/) {
   $equation=$1;
 }
-($DEBUG & 2) && print "BRACKET CLEANED EQUATION: $equation\n";
+($DEBUG & 64) && print "BRACKET CLEANED EQUATION: $equation\n";
 
 ## TRANSLATE (1+(2+...N)) => (1+2+...N)
 #while ($equation=~ /(.*?)(\(\d+)\+\(((\d+\+)+\d+\))\)(.*)/) {
@@ -2157,11 +2264,18 @@ my $fldhdr=shift;
 my $prophdr=shift;
 my $tblhdr=shift;
   
+  my $codecnt = length($$code);
   for (my $j=0; $j<=length($$code); $j++) {
+    if (($DEBUG & 1) && 0 == ($j % 25000)) { 
+      $codecnt = length($$code);
+      print "Untokenize: $j of $codecnt",&runtimer,"\n";
+    }
     my $a=substr($$code,$j,1);
     #my $b=substr($$code,0,$j-1);
-    my $c=substr($$code,$j+1,length($$code)-$j);
-    ($DEBUG & 4) && print "$j: '$a'",&runtimer,"\n";
+    #my $c=substr($$code,$j+1,length($$code)-$j)
+    my $c=(length($$code)-$j < 80)?substr($$code,$j+1,length($$code)-$j):substr($$code,$j+1,80);
+    my $d=(split(/\n/,$c))[0];
+    ($DEBUG & 8) && print "Untokenize: $j '$a' '$d'",&runtimer,"\n";
     if ($a eq '$') {
       my $sz=0;
       my $val='';
@@ -2171,13 +2285,13 @@ my $tblhdr=shift;
         my $tmp=$varhdr . substr($vars[$val],1,length($vars[$val])-1);
         substr($$code,$j,$sz+2,$tmp);
         $j+=length($tmp);
-        ($DEBUG & 4) && print "  Process string $tmp",&runtimer,"\n";
-      } elsif ($c=~ /^\$\*/) {
+        ($DEBUG & 8) && print "  Process string $tmp",&runtimer,"\n";
+      } elsif ($c=~ /^\*/) {
     #   $tmp='dumpallvars()';
     #   substr($$code,$j,3,$tmp);
     #   $j+=length($tmp);
-        $j+=3;
-        ($DEBUG & 4) && print "  Process \$*",&runtimer,"\n";
+        $j+=2;
+        ($DEBUG & 8) && print "  Process \$*",&runtimer,"\n";
       } else {
         print "W: Expected token variable but found nothing\n";
         print "   CONTEXT:\n    ",substr($$code,$j-60,120),"\n";
@@ -2191,7 +2305,7 @@ my $tblhdr=shift;
         my $tmp=$fldhdr . substr($flds[$val],1,length($flds[$val])-1);
         substr($$code,$j,$sz+2,$tmp);
         $j+=length($tmp);
-        ($DEBUG & 4) && print "  Process field $tmp",&runtimer,"\n";
+        ($DEBUG & 8) && print "  Process field $tmp",&runtimer,"\n";
       } else {
         print "W: Expected token field but found nothing\n";
         print "   CONTEXT:\n    ",substr($$code,$j-60,120),"\n";
@@ -2205,7 +2319,7 @@ my $tblhdr=shift;
         my $tmp=$prophdr . substr($props[$val],1,length($props[$val])-1);
         substr($$code,$j,$sz+2,$tmp);
         $j+=length($tmp);
-        ($DEBUG & 4) && print "  Process property $tmp",&runtimer,"\n";
+        ($DEBUG & 8) && print "  Process property $tmp",&runtimer,"\n";
       } else {
         print "W: Expected token property but found nothing\n";
         print "   CONTEXT:\n    ",substr($$code,$j-60,120),"\n";
@@ -2222,7 +2336,7 @@ my $tblhdr=shift;
         substr($$code,$j,$sz+2,$tmp);
   #print "AFTER CONTEXT:\n    ",substr($$code,$j-60,120),"\n";
         $j+=length($tmp);
-        ($DEBUG & 4) && print "  Process table $tmp",&runtimer,"\n";
+        ($DEBUG & 8) && print "  Process table $tmp",&runtimer,"\n";
       } else {
         print "W: Expected token table but found nothing\n";
         print "   CONTEXT:\n    ",substr($$code,$j-60,120),"\n";
@@ -2236,10 +2350,10 @@ my $tblhdr=shift;
         $sz=length($val);
         substr($$code,$j,$sz+2,$strings[$val]);
         $j+=length($strings[$val]);
-        ($DEBUG & 4) && print "  Process string $strings[$val]",&runtimer,"\n";
+        ($DEBUG & 8) && print "  Process string $strings[$val]",&runtimer,"\n";
       } else {
         $j++;  ## SKIP SECOND QUOTE
-        ($DEBUG & 4) && print "  Skip string's end quote $a",&runtimer,"\n";
+        ($DEBUG & 8) && print "  Skip string's end quote $a",&runtimer,"\n";
       }
     }
   }
