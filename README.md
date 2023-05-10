@@ -1,5 +1,5 @@
 # NetcoolRuleParser
-Analytics for Netcool Rules and converts the functionality to javascript to run under nodejs.
+Analytics for Netcool Rules.
 
 # PROGRAM: 
 
@@ -100,14 +100,20 @@ rules2tbl.pl
      2. Run the script from the directory and save the log output      
        cd ((rule-root-directory))                                      
        ./rules2tbl.pl -input snmptrap.rules > snnptrap.log             
-     3. Use either Excel or Open Office (free) to examine the xls file 
-        The program will create four files:                            
+     3. Use either Excel or Open Office (free) to examine the xls file
+        The program will create nine files:
         snmptrap.xls : MS Office file containing statistics, raw table,
-                       and equation.  Excel or OpenOffice can be used. 
-        snmptrap.eqn : Holds the number of paths as well as the rules  
-                       equation.                                       
-        snmptrap.tbl : Holds a tab delimited output of the table.      
-        snmptrap.log : The log file used to debug issues.              
+                       and equation.  Excel or OpenOffice can be used.
+        snmptrap.eqn : Holds the number of paths as well as the rules
+                       equation.
+        snmptrap.tbl : Holds a tab delimited output of the table.
+        snmptrap.log : The log file used to debug issues.
+        Rules Saved After Each Stage:
+           snmptrap.loop1-concat-all-rules
+           snmptrap.loop2-tokenize-remove-comments
+           snmptrap.loop3-buffer-tables
+           snmptrap.loop4-convert-to-javascript
+           snmptrap.loop5-convert-switchstmts-to-if-then-else
 
 ## Install OpenOffice -                                                  
 
@@ -117,12 +123,13 @@ rules2tbl.pl
 # PROGRAM USAGE:                                                        
 
      rules2tbl.pl                                                          
-                  [-debug <debug number 1-2047>]  (($DEBUG))           
-                    1   - Track program's progress.                    
-                    2   - Tracing in program.                          
-                    4   - Print out the interum rules before and after 
-	                   switch stmts are converted to if-then-else.  
-                          Also dump all tokens.                        
+                  [-debug <debug number 1-63>]    (($DEBUG))
+                    1   - Track program's progress.
+                    2   - Detailed logging of loop 1
+                    4   - Detailed logging of loop 2
+                    8   - Detailed logging of loop 3
+                    16  - Detailed logging of loop 4
+                    32  - Detailed logging of loop 5
                   [-excel <fullpath to Excel output file>]             
                   [-help]                                              
                   [-input <rulesfile>]                                 
@@ -137,5 +144,4 @@ rules2tbl.pl
  THE FOLLOWING ARE KNOW "FEATURES" THAT WERE PROVIDED BUT NOT ASKED FOR
  1. Limited simplification of rules                                    
  2. Nested values not addressed.                                       
-
 

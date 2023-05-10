@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ##########################################################################
-# 09/26/2015                  Daniel L. Needles              Version 0.9 #
+# 05/10/2023                  Daniel L. Needles              Version 0.9 #
 # PROGRAM: rules2tbl.pl                                                  #
 # PURPOSE:                                                               #
 #          IBM Tivoli Netcool rules are usually in an "evolved" state.   #
@@ -25,7 +25,10 @@
 #          NOTE: The rules use a very "loose" syntax. As such parsing    #
 #             doesn't always work. However the script can be corrected   #
 #             as these come up based on full out put from the log        #
-#               ./rules2tbl.pl -debug 4095 -input ((master-rule-file))   #
+#             1. Start with Debug level 1 to see where the issues are    #
+#             2. Add in additional debug flags according to the loop     #
+#                where the issue is occurring.                           #
+#               ./rules2tbl.pl -debug 1 -input ((master-rule-file))      #
 #          NOTE: The program works on a subset of the rules as well:     #
 #               ./rules2tbl.pl -input ((rule-file))                      #
 # PSUDO CODE:                                                            #
@@ -88,7 +91,7 @@
 #       cd ((rule-root-directory))                                       #
 #       ./rules2tbl.pl -input snmptrap.rules > snnptrap.log              #
 #     3. Use either Excel or Open Office (free) to examine the xls file  #
-#        The program will create four files:                             #
+#        The program will create nine files:                             #
 #        snmptrap.xls : MS Office file containing statistics, raw table, #
 #                       and equation.  Excel or OpenOffice can be used.  #
 #        snmptrap.eqn : Holds the number of paths as well as the rules   #
@@ -106,7 +109,7 @@
 #             2010/install-openoffice-org-on-fedora-centos-red-hat-rhel/ #
 # PROGRAM USAGE:                                                         #
 # rules2tbl.pl                                                           #
-#                  [-debug <debug number 1-2047>]  (($DEBUG))            #
+#                  [-debug <debug number 1-63>]    (($DEBUG))            #
 #                    1   - Track program's progress.                     #
 #                    2   - Detailed logging of loop 1                    #
 #                    4   - Detailed logging of loop 2                    #
@@ -124,7 +127,8 @@
 #         If the files have been moved, use mvdir to map the directory   #
 #         references to the local directory                              #
 #                                                                        #
-# EXAMPLE: rules2tbl.pl -input syslog.rules -mvdir /home/y/conf/netcool_rules/  > syslog.output
+# EXAMPLE: rules2tbl.pl -input syslog.rules \                            #
+#                       -mvdir /home/y/conf/netcool_rules/  > syslog.out #
 ##########################################################################
 # DLN20150709: Release without bells and whistles.                       #
 # THE FOLLOWING ARE KNOW "FEATURES" THAT WERE PROVIDED BUT NOT ASKED FOR #
@@ -148,10 +152,10 @@ my $AFD='snmptrap.tbl';     ## ONE FILE TO HOLD THEM ALL
 my $EQN='snmptrap.eqn';     ## EQUATION OUTPUT FILE
 my $SQL='snmptrap.sql';     ## SQL FILE
 my $JS='snmptrap.js';       ## JAVASCRIPT FILE
-my $LOOP1='snmptrap.loop1-concat-all-rules'; ## RULES AFTER LOOP1
-my $LOOP2='snmptrap.loop2-tokenize-remove-comments'; ## RULES AFTER LOOP2
-my $LOOP3='snmptrap.loop3-buffer-tables'; ## RULES AFTER LOOP3
-my $LOOP4='snmptrap.loop4-convert-to-javascript'; ## RULES AFTER LOOP4
+my $LOOP1='snmptrap.loop1-concat-all-rules';                    ## RULES AFTER LOOP1
+my $LOOP2='snmptrap.loop2-tokenize-remove-comments';            ## RULES AFTER LOOP2
+my $LOOP3='snmptrap.loop3-buffer-tables';                       ## RULES AFTER LOOP3
+my $LOOP4='snmptrap.loop4-convert-to-javascript';               ## RULES AFTER LOOP4
 my $LOOP5='snmptrap.loop5-convert-switchstmts-to-if-then-else'; ## RULES AFTER LOOP4
 my $MVDIR=':';              ## REPLACE DIRECTORY REFERENCE
 my $SRCDIR='';              ## DERIVED FROM MVDIR -- SRC DIR TO REPLACE
