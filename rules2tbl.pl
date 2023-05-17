@@ -1382,7 +1382,7 @@ for (my $i=0; $i<=$#lines; $i++) {
       }
     }
     $line="if($switch[$#switch] = $caseid){";
-    ($DEBUG 16& 4) && print "       CREATE FOR $caseid => switch: $line\n";
+    ($DEBUG & 16) && print "       CREATE FOR $caseid => switch: $line\n";
 
 # CONVERT OTHER CASES to ELSE IF.
   } elsif ( $line=~ /^case\s+(.*)\s*:\s*(.*)$/) {
